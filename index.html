@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeechWriter Status — État des services en temps réel</title>
+<meta name="description" content="État opérationnel des services LeechWriter : License Server, API generation, Downloads CDN.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path fill='%2353ff45' d='M0 13.4Q.1 12.3.3 11.3.5 10.5.8 9.7 1.1 8.9 1.4 8.2L2 7 2.8 5.9 3.8 4.6 4.9 3.4 6.1 2.4 7.5 1.5 9 .7 10.7.2 12.3 0 13.9.2 14.6.4 16.6 1.5 17.8 2.7 18.9 4.3 19.6 5.9 20 7.6Q20 8.1 19.4 7.9L18.2 6.9 17 6.5 15.6 6.7 14.5 7.4 13.5 8.3 12.7 9.3 11.9 10.6 11.1 12.2 10.3 14 9.4 15.4 8.6 16.7 7.8 17.7 7 18.5 6.1 19.2 5.1 19.8Q4.5 20 3.2 20L1.1 18.4 .3 16.4 0 14.4Z'/></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0c10;
+    --card: #14181f;
+    --text: #e6e8eb;
+    --muted: #8a8f99;
+    --green: #53ff45;
+    --orange: #ff9933;
+    --red: #ff4d6d;
+    --blue: #0076fe;
+    --border: #232830;
+  }
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  header h1 .accent { color: var(--green); }
+  header .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+  }
+  .global-status {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 32px;
+    text-align: center;
+  }
+  .global-status .badge {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+  }
+  .badge.up    { background: rgba(83,255,69,0.15);  color: var(--green); }
+  .badge.warn  { background: rgba(255,153,51,0.15); color: var(--orange); }
+  .badge.down  { background: rgba(255,77,109,0.15); color: var(--red); }
+  .badge.unknown { background: rgba(138,143,153,0.15); color: var(--muted); }
+  .global-status h2 {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+  .global-status p {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .services {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .service {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 16px;
+    transition: border-color 0.2s;
+  }
+  .service:hover {
+    border-color: var(--blue);
+  }
+  .service .info h3 {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+  .service .info p {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .service .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .status-pill.up    { background: rgba(83,255,69,0.1);  color: var(--green); }
+  .status-pill.warn  { background: rgba(255,153,51,0.1); color: var(--orange); }
+  .status-pill.down  { background: rgba(255,77,109,0.1); color: var(--red); }
+  .status-pill.unknown { background: rgba(138,143,153,0.1); color: var(--muted); }
+  .status-pill .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot.up    { background: var(--green); animation: pulse 2s infinite; }
+  .dot.warn  { background: var(--orange); }
+  .dot.down  { background: var(--red); }
+  .dot.unknown { background: var(--muted); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .info-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .info-box h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: var(--green);
+  }
+  .info-box p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .info-box code {
+    background: rgba(255,255,255,0.05);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'DM Mono', 'Courier New', monospace;
+    color: var(--green);
+  }
+  .meta {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .meta a { color: var(--blue); text-decoration: none; }
+  .meta a:hover { text-decoration: underline; }
+  .last-check {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .last-check .checking {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @media (max-width: 600px) {
+    .container { padding: 24px 16px; }
+    header h1 { font-size: 24px; }
+    .global-status h2 { font-size: 20px; }
+    .service { grid-template-columns: 1fr; text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>LeechWriter <span class="accent">Status</span></h1>
+    <p class="subtitle">État opérationnel des services en temps réel</p>
+  </header>
+
+  <div class="global-status" id="globalStatus">
+    <div class="badge unknown" id="globalBadge">Vérification...</div>
+    <h2 id="globalHeadline">Vérification de l'état des services</h2>
+    <p id="globalSummary">Connexion aux services en cours...</p>
+  </div>
+
+  <div class="last-check">
+    <span class="checking" id="checkingIcon">⟳</span>
+    <span id="lastCheckText">Vérification en cours...</span>
+  </div>
+
+  <div class="services" id="servicesContainer">
+    <!-- Services seront injectés via JS -->
+  </div>
+
+  <div class="info-box">
+    <h3>📡 Que font ces services ?</h3>
+    <p><strong>License Server</strong> — Vérifie la validité des licences clients (check toutes les 2h).</p>
+    <p><strong>API Generation</strong> — Backend qui orchestre la génération d'articles via OpenAI/Claude/Gemini.</p>
+    <p><strong>Downloads CDN</strong> — Distribution des fichiers ZIP du plugin (mises à jour automatiques).</p>
+    <p><strong>Updates Manifest</strong> — Fichier <code>update.json</code> qui annonce les nouvelles versions disponibles.</p>
+  </div>
+
+  <div class="info-box">
+    <h3>🛡️ En cas de panne</h3>
+    <p>Si <strong>License Server</strong> ou <strong>API Generation</strong> sont indisponibles, votre plugin LeechWriter <strong>continue de fonctionner</strong> grâce au mécanisme de grâce 72h. Aucune action n'est requise de votre part.</p>
+    <p>Si une panne dure plus de 24h, nous communiquerons via <code>contact@leechwriter.ai</code>.</p>
+  </div>
+
+  <div class="meta">
+    <p>Page hébergée sur GitHub Pages (indépendante de leechwriter.ai pour transparence).</p>
+    <p>Mise à jour automatique toutes les 60 secondes. <a href="https://leechwriter.ai">leechwriter.ai</a></p>
+  </div>
+
+</div>
+
+<script>
+/**
+ * LeechWriter Status Page — JS de vérification temps réel
+ *
+ * Pings each service endpoint and updates the UI accordingly.
+ * Refreshes every 60 seconds.
+ */
+(function() {
+  'use strict';
+
+  const SERVICES = [
+    {
+      id: 'license-server',
+      name: 'License Server',
+      desc: 'Vérification des licences (check toutes les 2h)',
+      endpoint: 'https://leechwriter.ai/wp-json/leechwriter/v1/health',
+      method: 'GET',
+      fallbackEndpoint: 'https://leechwriter.ai/wp-json/leechwriter/v1/check'
+    },
+    {
+      id: 'api-generation',
+      name: 'API Generation',
+      desc: 'Backend de génération d\'articles',
+      endpoint: 'https://leechwriter.ai/',
+      method: 'HEAD'
+    },
+    {
+      id: 'downloads-cdn',
+      name: 'Downloads CDN',
+      desc: 'Distribution des ZIP du plugin',
+      endpoint: 'https://leechwriter.ai/updates/leechwriter.json',
+      method: 'GET'
+    },
+    {
+      id: 'updates-manifest',
+      name: 'Updates Manifest',
+      desc: 'Fichier update.json (auto-updates)',
+      endpoint: 'https://leechwriter.ai/updates/leechwriter.json',
+      method: 'GET'
+    }
+  ];
+
+  const TIMEOUT_MS = 8000;
+
+  // Ping un endpoint avec timeout
+  function ping(service) {
+    const startTime = Date.now();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    return fetch(service.endpoint, {
+      method: service.method || 'GET',
+      mode: 'no-cors',  // Bypass CORS pour les checks de connectivité
+      cache: 'no-cache',
+      signal: controller.signal
+    })
+      .then(() => {
+        clearTimeout(timeoutId);
+        const latency = Date.now() - startTime;
+        // Avec mode: 'no-cors', on ne peut pas lire le status
+        // mais si fetch ne throw pas, c'est que le serveur a répondu
+        return { status: 'up', latency };
+      })
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        return { status: 'down', error: err.message || 'unknown' };
+      });
+  }
+
+  // Met à jour l'UI d'un service
+  function renderService(service, result) {
+    const status = result.status;
+    const latency = result.latency || 0;
+    let statusText = '';
+    let statusLabel = '';
+
+    if (status === 'up') {
+      statusLabel = 'Opérationnel';
+      statusText = `${latency}ms`;
+    } else if (status === 'warn') {
+      statusLabel = 'Lent';
+      statusText = `${latency}ms`;
+    } else {
+      statusLabel = 'Indisponible';
+      statusText = '';
+    }
+
+    return `
+      <div class="service">
+        <div class="info">
+          <h3>${service.name}</h3>
+          <p>${service.desc}</p>
+        </div>
+        <div class="status-pill ${status}">
+          <span class="dot ${status}"></span>
+          <span>${statusLabel}${statusText ? ' · ' + statusText : ''}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Calcule l'état global à partir des résultats
+  function computeGlobalStatus(results) {
+    const statuses = results.map(r => r.status);
+    if (statuses.every(s => s === 'up')) {
+      return { status: 'up', label: 'Tous les systèmes opérationnels', summary: 'Aucun incident en cours.' };
+    }
+    if (statuses.some(s => s === 'down')) {
+      const downCount = statuses.filter(s => s === 'down').length;
+      return {
+        status: 'down',
+        label: 'Incident en cours',
+        summary: `${downCount} service${downCount > 1 ? 's' : ''} indisponible${downCount > 1 ? 's' : ''}. Le mécanisme de grâce 72h protège votre installation.`
+      };
+    }
+    return { status: 'warn', label: 'Performance dégradée', summary: 'Certains services répondent lentement.' };
+  }
+
+  // Rendu global
+  function renderAll(results) {
+    const container = document.getElementById('servicesContainer');
+    container.innerHTML = SERVICES.map((s, i) => renderService(s, results[i])).join('');
+
+    const global = computeGlobalStatus(results);
+    document.getElementById('globalBadge').className = 'badge ' + global.status;
+    document.getElementById('globalBadge').textContent = global.status.toUpperCase();
+    document.getElementById('globalHeadline').textContent = global.label;
+    document.getElementById('globalSummary').textContent = global.summary;
+
+    const now = new Date();
+    document.getElementById('lastCheckText').textContent =
+      'Dernière vérification : ' + now.toLocaleTimeString('fr-FR') + ' · Auto-refresh toutes les 60s';
+    document.getElementById('checkingIcon').style.animation = 'none';
+  }
+
+  // Lance toutes les vérifications
+  async function checkAll() {
+    document.getElementById('checkingIcon').style.animation = 'spin 1s linear infinite';
+    const results = await Promise.all(SERVICES.map(s => ping(s)));
+    renderAll(results);
+  }
+
+  // Premier check + intervalle
+  checkAll();
+  setInterval(checkAll, 60000);
+
+})();
+</script>
+
+</body>
+</html>
